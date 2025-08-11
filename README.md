@@ -1,2 +1,2 @@
 # detektorobyek
-Deteksi Obyek di Jalan Raya Menggunakan YOLO
+Deteksi Obyek di Jalan Raya Menggunakan COCO-SSD
