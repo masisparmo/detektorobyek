@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Detektor Objek Jalan Raya</title>
+    <!-- Memuat Tailwind CSS untuk styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat TensorFlow.js Core & Backend -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.11.0/dist/tf-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.11.0/dist/tf-backend-webgl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.11.0/dist/tf-backend-cpu.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.11.0/dist/tf-converter.min.js"></script>
+    <!-- Memuat Library untuk Deteksi Objek (COCO-SSD) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
+    <style>
+        .relative-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: auto;
+            background-color: #e5e7eb; /* bg-gray-200 */
+        }
+        #webcam, #image-preview {
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+        }
+        #canvas-webcam, #canvas-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .tab-button.active {
+            background-color: #3b82f6; /* bg-blue-600 */
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4 font-sans">
+
+    <div class="w-full max-w-2xl bg-white p-6 rounded-lg shadow-lg text-center">
+        <h1 class="text-2xl md:text-3xl font-bold mb-2">Detektor Objek Jalan Raya</h1>
+        <p class="text-gray-600 mb-4">Mendeteksi Objek menggunakan COCO-SSD</p>
+
+        <!-- FITUR BARU: Pilihan Ambang Batas Kepercayaan -->
+        <div class="mb-4">
+            <label for="threshold-input" class="block text-sm font-medium text-gray-700 mb-1">Ambang Batas Kepercayaan (0.1 - 0.9):</label>
+            <input type="number" id="threshold-input" class="w-full max-w-xs mx-auto p-2 border border-gray-300 rounded-md shadow-sm" value="0.4" min="0.1" max="0.9" step="0.1">
+        </div>
+
+        <!-- Tombol Tab untuk memilih mode -->
+        <div class="flex justify-center border-b mb-4">
+            <button id="tab-webcam" class="tab-button py-2 px-4 -mb-px font-semibold text-gray-600 border-b-2 border-transparent rounded-t-lg hover:text-blue-500 active">Deteksi via Webcam</button>
+            <button id="tab-upload" class="tab-button py-2 px-4 -mb-px font-semibold text-gray-600 border-b-2 border-transparent rounded-t-lg hover:text-blue-500">Deteksi via Upload</button>
+        </div>
+
+        <!-- Konten Webcam -->
+        <div id="webcam-section">
+            <div class="relative-container rounded-lg overflow-hidden mb-4">
+                <video id="webcam" autoplay playsinline muted></video>
+                <canvas id="canvas-webcam"></canvas>
+            </div>
+            <div class="flex justify-center space-x-4">
+                <button id="start-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105" disabled>
+                    Mulai Deteksi Webcam
+                </button>
+                <button id="switch-camera-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 hidden">
+                    Ganti Kamera
+                </button>
+            </div>
+        </div>
+
+        <!-- Konten Upload Gambar -->
+        <div id="upload-section" class="hidden">
+            <div class="relative-container rounded-lg overflow-hidden mb-4">
+                <img id="image-preview" class="hidden" alt="Pratinjau Gambar"/>
+                <canvas id="canvas-image"></canvas>
+            </div>
+            <input type="file" id="image-uploader" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4"/>
+            <button id="predict-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105" disabled>
+                Deteksi Gambar
+            </button>
+        </div>
+        
+        <p id="status" class="mt-2 text-sm text-gray-500">Status: Memuat model...</p>
+
+        <!-- Kontainer untuk tabel ringkasan -->
+        <div id="summary-container" class="mt-4 w-full max-w-md mx-auto">
+            <!-- Tabel akan dimasukkan di sini oleh JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // Mengambil elemen dari HTML
+        const video = document.getElementById('webcam');
+        const imagePreview = document.getElementById('image-preview');
+        const canvasWebcam = document.getElementById('canvas-webcam');
+        const canvasImage = document.getElementById('canvas-image');
+        const startButton = document.getElementById('start-button');
+        const switchCameraButton = document.getElementById('switch-camera-button');
+        const predictButton = document.getElementById('predict-button');
+        const imageUploader = document.getElementById('image-uploader');
+        const statusText = document.getElementById('status');
+        const tabWebcam = document.getElementById('tab-webcam');
+        const tabUpload = document.getElementById('tab-upload');
+        const webcamSection = document.getElementById('webcam-section');
+        const uploadSection = document.getElementById('upload-section');
+        const summaryContainer = document.getElementById('summary-container');
+        const thresholdInput = document.getElementById('threshold-input'); // Mengambil elemen input threshold
+
+        const ctxWebcam = canvasWebcam.getContext('2d');
+        const ctxImage = canvasImage.getContext('2d');
+        
+        // Variabel state
+        let model = undefined;
+        let currentFacingMode = 'user';
+        let videoStream;
+
+        const TARGET_CLASSES = {
+            'person': 'Orang',
+            'bicycle': 'Sepeda',
+            'motorcycle': 'Motor',
+            'car': 'Mobil',
+            'bus': 'Bus',
+            'truck': 'Truk'
+        };
+
+        const CLASS_COLORS = {
+            'person': '#FBBF24',     // amber-400
+            'bicycle': '#34D399',    // emerald-400
+            'motorcycle': '#F87171', // red-400
+            'car': '#60A5FA',        // blue-400
+            'bus': '#A78BFA',        // violet-400
+            'truck': '#F472B6'       // pink-400
+        };
+
+        // Fungsi untuk menggambar kotak prediksi
+        function drawPredictions(predictions, canvasContext, canvasElement) {
+            canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            if (!predictions) return;
+
+            predictions.forEach(prediction => {
+                const detectedClass = prediction.class;
+                if (TARGET_CLASSES[detectedClass]) {
+                    const bbox = prediction.bbox;
+                    const score = prediction.score;
+                    const color = CLASS_COLORS[detectedClass];
+                    const label = TARGET_CLASSES[detectedClass];
+
+                    canvasContext.strokeStyle = color;
+                    canvasContext.lineWidth = 4;
+                    canvasContext.fillStyle = color;
+                    canvasContext.font = '16px sans-serif';
+
+                    canvasContext.beginPath();
+                    canvasContext.rect(...bbox);
+                    canvasContext.stroke();
+
+                    const labelText = `${label}: ${Math.round(score * 100)}%`;
+                    canvasContext.fillText(labelText, bbox[0], bbox[1] > 20 ? bbox[1] - 5 : 20);
+                }
+            });
+        }
+
+        // Fungsi untuk memperbarui tabel ringkasan
+        function updateSummaryTable(predictions) {
+            if (!predictions) {
+                summaryContainer.innerHTML = '';
+                return;
+            }
+
+            const counts = {};
+            for (const key in TARGET_CLASSES) {
+                counts[key] = 0;
+            }
+
+            predictions.forEach(p => {
+                if (TARGET_CLASSES[p.class]) {
+                    counts[p.class]++;
+                }
+            });
+
+            let tableHTML = `
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2 text-left">Ringkasan Deteksi</h3>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="py-1">Objek</th>
+                                <th class="py-1 text-right">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            let objectDetected = false;
+            for (const key in counts) {
+                if (counts[key] > 0) {
+                    objectDetected = true;
+                    tableHTML += `
+                        <tr class="border-b border-gray-200">
+                            <td class="py-1">${TARGET_CLASSES[key]}</td>
+                            <td class="py-1 text-right">${counts[key]}</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            if (!objectDetected) {
+                tableHTML += `<tr><td colspan="2" class="py-2 text-center text-gray-500">Tidak ada objek terdeteksi.</td></tr>`;
+            }
+
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            summaryContainer.innerHTML = tableHTML;
+        }
+
+        // Fungsi utama untuk memuat model COCO-SSD
+        async function loadModel() {
+            try {
+                const modelConfig = { base: 'lite_mobilenet_v2' };
+                model = await cocoSsd.load(modelConfig);
+                statusText.textContent = `Model COCO-SSD siap digunakan.`;
+                startButton.disabled = false;
+                predictButton.disabled = false;
+            } catch (error) {
+                console.error("Gagal memuat model: ", error);
+                statusText.textContent = `Error: Gagal memuat model COCO-SSD.`;
+            }
+        }
+        
+        // --- LOGIKA WEBCAM ---
+        function stopWebcamStream() {
+            if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+        }
+
+        async function startWebcam() {
+            stopWebcamStream();
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 'video': { facingMode: currentFacingMode } });
+                    videoStream = stream;
+                    video.srcObject = stream;
+                    video.addEventListener('loadeddata', predictWebcamLoop);
+                } catch (error) {
+                    alert(`Tidak bisa mengakses kamera (${currentFacingMode}).`);
+                }
+            }
+        }
+
+        async function predictWebcamLoop() {
+            if (!videoStream || !model) return;
+            canvasWebcam.width = video.videoWidth;
+            canvasWebcam.height = video.videoHeight;
+            const threshold = parseFloat(thresholdInput.value) || 0.4; // Ambil nilai threshold
+            const predictions = await model.detect(video, undefined, threshold);
+            drawPredictions(predictions, ctxWebcam, canvasWebcam);
+            updateSummaryTable(predictions);
+            requestAnimationFrame(predictWebcamLoop);
+        }
+        
+        // --- LOGIKA UPLOAD GAMBAR ---
+        imageUploader.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                    imagePreview.onload = () => {
+                        ctxImage.clearRect(0, 0, canvasImage.width, canvasImage.height);
+                        summaryContainer.innerHTML = '';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function predictUploadedImage() {
+            if (!imagePreview.src || imagePreview.classList.contains('hidden')) {
+                alert("Silakan unggah gambar terlebih dahulu.");
+                return;
+            }
+            if (!model) {
+                alert("Model belum dimuat. Mohon tunggu.");
+                return;
+            }
+            canvasImage.width = imagePreview.width;
+            canvasImage.height = imagePreview.height;
+            const threshold = parseFloat(thresholdInput.value) || 0.4; // Ambil nilai threshold
+            const predictions = await model.detect(imagePreview, undefined, threshold);
+            drawPredictions(predictions, ctxImage, canvasImage);
+            updateSummaryTable(predictions);
+        }
+
+        // --- Event Listeners ---
+        startButton.addEventListener('click', () => {
+            startWebcam();
+            startButton.textContent = "Deteksi Webcam Aktif...";
+            startButton.disabled = true;
+            switchCameraButton.classList.remove('hidden');
+        });
+        switchCameraButton.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startWebcam();
+        });
+        predictButton.addEventListener('click', predictUploadedImage);
+        tabWebcam.addEventListener('click', () => {
+            webcamSection.classList.remove('hidden');
+            uploadSection.classList.add('hidden');
+            tabWebcam.classList.add('active');
+            tabUpload.classList.remove('active');
+        });
+        tabUpload.addEventListener('click', () => {
+            webcamSection.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+            tabWebcam.classList.remove('active');
+            tabUpload.classList.add('active');
+            stopWebcamStream();
+            videoStream = null;
+            startButton.textContent = "Mulai Deteksi Webcam";
+            startButton.disabled = false;
+            switchCameraButton.classList.add('hidden');
+        });
+
+        // Memuat model saat halaman dibuka
+        loadModel();
+    </script>
+</body>
+</html>
