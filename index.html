@@ -89,6 +89,7 @@
         </div>
 
         <div id="webcam-section">
+            <p id="webcam-summary" class="mb-2 text-gray-600 h-6"></p>
             <div class="relative-container rounded-lg overflow-hidden mb-4">
                 <video id="webcam" autoplay playsinline muted></video>
                 <canvas id="canvas-webcam"></canvas>
@@ -104,7 +105,7 @@
                 <img id="image-preview" class="hidden" alt="Pratinjau Gambar"/>
                 <canvas id="canvas-image"></canvas>
             </div>
-            <input type="file" id="image-uploader" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0">
+            <input type="file" id="image-uploader" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0"/>
             <div class="flex justify-center space-x-2 mt-4">
                 <button id="predict-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg" disabled>1. Deteksi</button>
                 <button id="gemini-button" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg">2. Analisis AI</button>
@@ -148,7 +149,8 @@
                   apiKeyInput = document.getElementById('api-key-input'), apiHelpButton = document.getElementById('api-help-button'),
                   modelHelpButton = document.getElementById('model-help-button'), thresholdHelpButton = document.getElementById('threshold-help-button'),
                   apiHelpModal = document.getElementById('api-help-modal'), modelHelpModal = document.getElementById('model-help-modal'),
-                  thresholdHelpModal = document.getElementById('threshold-help-modal'), closeButtons = document.querySelectorAll('.close-modal-button');
+                  thresholdHelpModal = document.getElementById('threshold-help-modal'), closeButtons = document.querySelectorAll('.close-modal-button'),
+                  webcamSummary = document.getElementById('webcam-summary');
 
             const ctxWebcam = canvasWebcam.getContext('2d'), ctxImage = canvasImage.getContext('2d');
             
@@ -285,6 +287,18 @@
                 const threshold = parseFloat(thresholdInput.value) || 0.4;
                 const predictions = await model.detect(video, undefined, threshold);
                 drawPredictions(predictions, ctxWebcam, canvasWebcam);
+
+                const counts = {};
+                predictions.forEach(p => {
+                    if (TARGET_CLASSES[p.class]) {
+                        counts[TARGET_CLASSES[p.class]] = (counts[TARGET_CLASSES[p.class]] || 0) + 1;
+                    }
+                });
+                const summaryText = Object.entries(counts)
+                                        .map(([key, value]) => `${value} ${key}`)
+                                        .join(', ');
+                webcamSummary.textContent = summaryText ? `Terdeteksi: ${summaryText}` : '';
+
                 requestAnimationFrame(predictWebcamLoop);
             }
             
