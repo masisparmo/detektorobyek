@@ -38,7 +38,6 @@
             background-color: #3b82f6; /* bg-blue-600 */
             color: white;
         }
-        /* Style untuk tabel agar bisa di-scroll horizontal di layar kecil */
         .table-container {
             overflow-x: auto;
         }
@@ -48,12 +47,26 @@
 
     <div class="w-full max-w-2xl bg-white p-6 rounded-lg shadow-lg text-center">
         <h1 class="text-2xl md:text-3xl font-bold mb-2">Detektor Objek Jalan Raya</h1>
-        <p class="text-gray-600 mb-4">Bandingkan Akurasi Model COCO-SSD</p>
+        <p class="text-gray-600 mb-4">Bandingkan Akurasi Model COCO-SSD vs Gemini AI</p>
+        
+        <!-- Input Gemini API Key dengan Tombol Bantuan -->
+        <div class="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+             <div class="flex items-center justify-center mb-1">
+                 <label for="api-key-input" class="block text-sm font-medium text-gray-700">Gemini API Key (Wajib untuk Analisis AI):</label>
+                 <!-- Tombol Bantuan Pop-up -->
+                 <button id="help-button" class="ml-2 text-blue-500 hover:text-blue-700">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                     </svg>
+                 </button>
+             </div>
+             <input type="password" id="api-key-input" class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="Masukkan API Key Anda di sini">
+        </div>
 
         <!-- Pengaturan Model & Threshold -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-                <label for="model-selector" class="block text-sm font-medium text-gray-700 mb-1">Pilih Model:</label>
+                <label for="model-selector" class="block text-sm font-medium text-gray-700 mb-1">Pilih Model COCO-SSD:</label>
                 <select id="model-selector" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="lite_mobilenet_v2">COCO-SSD Lite (Cepat)</option>
                     <option value="mobilenet_v2">COCO-SSD Full (Akurat)</option>
@@ -94,9 +107,14 @@
                 <canvas id="canvas-image"></canvas>
             </div>
             <input type="file" id="image-uploader" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4"/>
-            <button id="predict-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105" disabled>
-                Tambahkan ke Perbandingan
-            </button>
+            <div class="flex justify-center space-x-2">
+                <button id="predict-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg" disabled>
+                    1. Deteksi (COCO-SSD)
+                </button>
+                <button id="gemini-button" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg">
+                    2. Analisis dengan AI
+                </button>
+            </div>
         </div>
         
         <p id="status" class="mt-2 text-sm text-gray-500">Status: Memuat model...</p>
@@ -104,7 +122,7 @@
         <!-- Kontainer untuk tabel perbandingan -->
         <div class="mt-6 w-full">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg text-left">Tabel Perbandingan</h3>
+                <h3 class="font-bold text-lg text-left">Tabel Perbandingan Akurasi</h3>
                 <button id="reset-button" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-lg">Reset</button>
             </div>
             <div id="summary-container" class="table-container bg-gray-50 p-3 rounded-lg">
@@ -112,6 +130,25 @@
             </div>
         </div>
     </div>
+
+    <!-- FITUR BARU: Modal Pop-up untuk Bantuan API Key -->
+    <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg text-left">
+            <div class="flex justify-between items-center border-b pb-3 mb-3">
+                <h3 class="text-xl font-bold">Cara Mendapatkan Gemini API Key Gratis</h3>
+                <button id="close-modal-button" class="text-gray-500 hover:text-gray-800">&times;</button>
+            </div>
+            <ol class="list-decimal list-inside space-y-2">
+                <li>Kunjungi situs <a href="https://aistudio.google.com/" target="_blank" class="text-blue-600 hover:underline">Google AI Studio</a>.</li>
+                <li>Login dengan akun Google Anda.</li>
+                <li>Klik tombol <strong class="font-bold">"Get API key"</strong> di pojok kiri atas.</li>
+                <li>Pilih <strong class="font-bold">"Create API key in new project"</strong>.</li>
+                <li>Salin (copy) API key yang muncul di layar.</li>
+                <li>Tempel (paste) API key tersebut ke dalam kolom di aplikasi ini.</li>
+            </ol>
+        </div>
+    </div>
+
 
     <script>
         // Mengambil elemen dari HTML
@@ -122,6 +159,7 @@
         const startButton = document.getElementById('start-button');
         const switchCameraButton = document.getElementById('switch-camera-button');
         const predictButton = document.getElementById('predict-button');
+        const geminiButton = document.getElementById('gemini-button');
         const imageUploader = document.getElementById('image-uploader');
         const statusText = document.getElementById('status');
         const tabWebcam = document.getElementById('tab-webcam');
@@ -132,15 +170,18 @@
         const thresholdInput = document.getElementById('threshold-input');
         const modelSelector = document.getElementById('model-selector');
         const resetButton = document.getElementById('reset-button');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const helpButton = document.getElementById('help-button');
+        const helpModal = document.getElementById('help-modal');
+        const closeModalButton = document.getElementById('close-modal-button');
 
         const ctxWebcam = canvasWebcam.getContext('2d');
         const ctxImage = canvasImage.getContext('2d');
         
-        // Variabel state
         let model = undefined;
         let currentFacingMode = 'user';
         let videoStream;
-        let comparisonResults = []; // Menyimpan hasil untuk perbandingan
+        let comparisonResults = [];
 
         const TARGET_CLASSES = {
             'person': 'Orang',
@@ -152,15 +193,10 @@
         };
 
         const CLASS_COLORS = {
-            'person': '#FBBF24',     // amber-400
-            'bicycle': '#34D399',    // emerald-400
-            'motorcycle': '#F87171', // red-400
-            'car': '#60A5FA',        // blue-400
-            'bus': '#A78BFA',        // violet-400
-            'truck': '#F472B6'       // pink-400
+            'person': '#FBBF24', 'bicycle': '#34D399', 'motorcycle': '#F87171',
+            'car': '#60A5FA', 'bus': '#A78BFA', 'truck': '#F472B6'
         };
 
-        // Fungsi untuk menggambar kotak prediksi
         function drawPredictions(predictions, canvasContext, canvasElement) {
             canvasContext.clearRect(0, 0, canvasElement.width, canvasElement.height);
             if (!predictions) return;
@@ -177,34 +213,38 @@
                     canvasContext.lineWidth = 4;
                     canvasContext.fillStyle = color;
                     canvasContext.font = '16px sans-serif';
-
                     canvasContext.beginPath();
                     canvasContext.rect(...bbox);
                     canvasContext.stroke();
-
                     const labelText = `${label}: ${Math.round(score * 100)}%`;
                     canvasContext.fillText(labelText, bbox[0], bbox[1] > 20 ? bbox[1] - 5 : 20);
                 }
             });
         }
 
-        // Fungsi untuk memperbarui tabel perbandingan
         function updateComparisonTable() {
             if (comparisonResults.length === 0) {
                 summaryContainer.innerHTML = '<p class="text-center text-gray-500">Jalankan deteksi untuk melihat perbandingan.</p>';
                 return;
             }
 
+            const geminiResult = comparisonResults.find(r => r.modelName === 'Gemini');
+            
             let tableHTML = '<table class="w-full text-left whitespace-nowrap"><thead><tr class="border-b"><th class="py-2 px-2 font-bold">Objek</th>';
             
-            // Buat header kolom untuk setiap hasil
-            comparisonResults.forEach((result, index) => {
-                const modelName = result.modelName.includes('lite') ? 'Lite' : 'Full';
-                tableHTML += `<th class="py-2 px-2 font-bold text-center">${modelName}<br><span class="font-normal text-xs">(Th: ${result.threshold})</span></th>`;
+            comparisonResults.forEach(result => {
+                let modelNameDisplay;
+                 if (result.modelName === 'Gemini') {
+                    modelNameDisplay = 'Acuan AI';
+                } else if (result.modelName.includes('lite')) {
+                    modelNameDisplay = `Lite (Th: ${result.threshold})`;
+                } else {
+                    modelNameDisplay = `Full (Th: ${result.threshold})`;
+                }
+                tableHTML += `<th class="py-2 px-2 font-bold text-center">${modelNameDisplay}</th>`;
             });
             tableHTML += '</tr></thead><tbody>';
 
-            // Buat baris untuk setiap kelas objek
             for (const classKey in TARGET_CLASSES) {
                 const className = TARGET_CLASSES[classKey];
                 tableHTML += `<tr class="border-b border-gray-200"><td class="py-2 px-2 font-medium">${className}</td>`;
@@ -215,11 +255,31 @@
                 tableHTML += '</tr>';
             }
 
+            if (geminiResult) {
+                tableHTML += `<tr class="bg-gray-200 font-bold"><td class="py-2 px-2">Skor Akurasi</td>`;
+                comparisonResults.forEach(result => {
+                    let accuracyScore = '-';
+                    if (result.modelName !== 'Gemini') {
+                        let totalCorrect = 0;
+                        let totalGemini = 0;
+                        for (const classKey in TARGET_CLASSES) {
+                            const model_count = result.counts[classKey] || 0;
+                            const gemini_count = geminiResult.counts[classKey] || 0;
+                            totalCorrect += Math.min(model_count, gemini_count);
+                            totalGemini += gemini_count;
+                        }
+                        const score = totalGemini > 0 ? (totalCorrect / totalGemini) * 100 : 100;
+                        accuracyScore = `${Math.round(score)}%`;
+                    }
+                    tableHTML += `<td class="py-2 px-2 text-center">${accuracyScore}</td>`;
+                });
+                tableHTML += '</tr>';
+            }
+
             tableHTML += '</tbody></table>';
             summaryContainer.innerHTML = tableHTML;
         }
 
-        // Fungsi untuk memproses hasil prediksi dan menambahkannya ke tabel
         function processAndStoreResults(predictions, modelName, threshold) {
             const counts = {};
             for (const key in TARGET_CLASSES) {
@@ -231,16 +291,10 @@
                 }
             });
 
-            comparisonResults.push({
-                modelName: modelName,
-                threshold: threshold,
-                counts: counts
-            });
-
+            comparisonResults.push({ modelName, threshold, counts });
             updateComparisonTable();
         }
 
-        // Fungsi utama untuk memuat model COCO-SSD yang dipilih
         async function loadModel() {
             if (model) {
                 model.dispose();
@@ -262,7 +316,6 @@
             }
         }
         
-        // --- LOGIKA WEBCAM ---
         function stopWebcamStream() {
             if (videoStream) videoStream.getTracks().forEach(track => track.stop());
         }
@@ -281,30 +334,16 @@
             }
         }
 
-        let lastUpdateTime = 0;
-        async function predictWebcamLoop(currentTime) {
+        async function predictWebcamLoop() {
             if (!videoStream || !model) return;
-            
-            // Batasi pembaruan tabel menjadi sekali per detik untuk performa
-            if (currentTime - lastUpdateTime > 1000) {
-                canvasWebcam.width = video.videoWidth;
-                canvasWebcam.height = video.videoHeight;
-                const threshold = parseFloat(thresholdInput.value) || 0.4;
-                const predictions = await model.detect(video, undefined, threshold);
-                drawPredictions(predictions, ctxWebcam, canvasWebcam);
-                
-                // Hapus hasil terakhir dan tambahkan yang baru untuk mode webcam
-                if (comparisonResults.length > 0 && comparisonResults[comparisonResults.length-1].modelName.includes('Webcam')) {
-                    comparisonResults.pop();
-                }
-                processAndStoreResults(predictions, `Webcam (${modelSelector.value})`, threshold);
-                
-                lastUpdateTime = currentTime;
-            }
+            canvasWebcam.width = video.videoWidth;
+            canvasWebcam.height = video.videoHeight;
+            const threshold = parseFloat(thresholdInput.value) || 0.4;
+            const predictions = await model.detect(video, undefined, threshold);
+            drawPredictions(predictions, ctxWebcam, canvasWebcam);
             requestAnimationFrame(predictWebcamLoop);
         }
         
-        // --- LOGIKA UPLOAD GAMBAR ---
         imageUploader.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
@@ -329,12 +368,82 @@
                 alert("Model belum dimuat. Mohon tunggu.");
                 return;
             }
+            statusText.textContent = "Mendeteksi dengan COCO-SSD...";
             canvasImage.width = imagePreview.width;
             canvasImage.height = imagePreview.height;
             const threshold = parseFloat(thresholdInput.value) || 0.4;
             const predictions = await model.detect(imagePreview, undefined, threshold);
             drawPredictions(predictions, ctxImage, canvasImage);
             processAndStoreResults(predictions, modelSelector.value, threshold);
+            statusText.textContent = "Deteksi COCO-SSD selesai.";
+        }
+        
+        function imageToBase64(imgElement) {
+            const canvas = document.createElement('canvas');
+            canvas.width = imgElement.naturalWidth;
+            canvas.height = imgElement.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imgElement, 0, 0);
+            return canvas.toDataURL('image/jpeg').split(',')[1];
+        }
+
+        async function analyzeWithGemini() {
+            const apiKey = apiKeyInput.value;
+            if (!apiKey) {
+                alert("Silakan masukkan Gemini API Key Anda.");
+                return;
+            }
+             if (!imagePreview.src || imagePreview.classList.contains('hidden')) {
+                alert("Silakan unggah gambar terlebih dahulu.");
+                return;
+            }
+
+            statusText.textContent = "Menganalisis dengan Gemini AI... Ini mungkin butuh beberapa saat.";
+            geminiButton.disabled = true;
+
+            try {
+                const base64ImageData = imageToBase64(imagePreview);
+                const prompt = `Analisis gambar ini. Identifikasi dan hitung jumlah objek berikut: 'person', 'bicycle', 'motorcycle', 'car', 'bus', 'truck'. Berikan hasilnya HANYA dalam format JSON yang valid. Contoh: {"person": 5, "bicycle": 2, "motorcycle": 0, "car": 10, "bus": 1, "truck": 0}`;
+
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
+                        ]
+                    }]
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const textResponse = result.candidates[0].content.parts[0].text;
+                
+                const jsonString = textResponse.replace(/```json\n|```/g, '').trim();
+                const geminiCounts = JSON.parse(jsonString);
+
+                comparisonResults = comparisonResults.filter(r => r.modelName !== 'Gemini');
+                comparisonResults.push({ modelName: 'Gemini', threshold: 'N/A', counts: geminiCounts });
+                updateComparisonTable();
+                statusText.textContent = "Analisis AI selesai. Hasil ditambahkan ke tabel.";
+
+            } catch (error) {
+                console.error("Error saat menganalisis dengan Gemini:", error);
+                statusText.textContent = "Gagal menganalisis dengan AI. Cek console untuk detail.";
+                alert("Terjadi kesalahan saat menghubungi API Gemini. Pastikan API Key Anda valid dan cek console (F12) untuk detail error.");
+            } finally {
+                geminiButton.disabled = false;
+            }
         }
 
         // --- Event Listeners ---
@@ -350,6 +459,7 @@
             startWebcam();
         });
         predictButton.addEventListener('click', predictUploadedImage);
+        geminiButton.addEventListener('click', analyzeWithGemini);
         resetButton.addEventListener('click', () => {
             comparisonResults = [];
             updateComparisonTable();
@@ -371,10 +481,23 @@
             startButton.disabled = false;
             switchCameraButton.classList.add('hidden');
         });
+        
+        // --- LOGIKA MODAL POP-UP ---
+        helpButton.addEventListener('click', () => {
+            helpModal.classList.remove('hidden');
+        });
+        closeModalButton.addEventListener('click', () => {
+            helpModal.classList.add('hidden');
+        });
+        helpModal.addEventListener('click', (event) => {
+            // Tutup modal jika user mengklik di luar area konten modal
+            if (event.target === helpModal) {
+                helpModal.classList.add('hidden');
+            }
+        });
 
-        // Memuat model saat halaman dibuka
         loadModel();
-        updateComparisonTable(); // Tampilkan tabel kosong saat pertama kali dimuat
+        updateComparisonTable();
     </script>
 </body>
 </html>
