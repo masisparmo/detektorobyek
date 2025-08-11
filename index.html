@@ -38,18 +38,31 @@
             background-color: #3b82f6; /* bg-blue-600 */
             color: white;
         }
+        /* Style untuk tabel agar bisa di-scroll horizontal di layar kecil */
+        .table-container {
+            overflow-x: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4 font-sans">
 
     <div class="w-full max-w-2xl bg-white p-6 rounded-lg shadow-lg text-center">
         <h1 class="text-2xl md:text-3xl font-bold mb-2">Detektor Objek Jalan Raya</h1>
-        <p class="text-gray-600 mb-4">Mendeteksi Objek menggunakan COCO-SSD</p>
+        <p class="text-gray-600 mb-4">Bandingkan Akurasi Model COCO-SSD</p>
 
-        <!-- FITUR BARU: Pilihan Ambang Batas Kepercayaan -->
-        <div class="mb-4">
-            <label for="threshold-input" class="block text-sm font-medium text-gray-700 mb-1">Ambang Batas Kepercayaan (0.1 - 0.9):</label>
-            <input type="number" id="threshold-input" class="w-full max-w-xs mx-auto p-2 border border-gray-300 rounded-md shadow-sm" value="0.4" min="0.1" max="0.9" step="0.1">
+        <!-- Pengaturan Model & Threshold -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="model-selector" class="block text-sm font-medium text-gray-700 mb-1">Pilih Model:</label>
+                <select id="model-selector" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="lite_mobilenet_v2">COCO-SSD Lite (Cepat)</option>
+                    <option value="mobilenet_v2">COCO-SSD Full (Akurat)</option>
+                </select>
+            </div>
+            <div>
+                <label for="threshold-input" class="block text-sm font-medium text-gray-700 mb-1">Ambang Batas Kepercayaan:</label>
+                <input type="number" id="threshold-input" class="w-full p-2 border border-gray-300 rounded-md shadow-sm" value="0.4" min="0.1" max="0.9" step="0.1">
+            </div>
         </div>
 
         <!-- Tombol Tab untuk memilih mode -->
@@ -82,15 +95,21 @@
             </div>
             <input type="file" id="image-uploader" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4"/>
             <button id="predict-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105" disabled>
-                Deteksi Gambar
+                Tambahkan ke Perbandingan
             </button>
         </div>
         
         <p id="status" class="mt-2 text-sm text-gray-500">Status: Memuat model...</p>
 
-        <!-- Kontainer untuk tabel ringkasan -->
-        <div id="summary-container" class="mt-4 w-full max-w-md mx-auto">
-            <!-- Tabel akan dimasukkan di sini oleh JavaScript -->
+        <!-- Kontainer untuk tabel perbandingan -->
+        <div class="mt-6 w-full">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-lg text-left">Tabel Perbandingan</h3>
+                <button id="reset-button" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-lg">Reset</button>
+            </div>
+            <div id="summary-container" class="table-container bg-gray-50 p-3 rounded-lg">
+                <!-- Tabel akan dimasukkan di sini oleh JavaScript -->
+            </div>
         </div>
     </div>
 
@@ -110,7 +129,9 @@
         const webcamSection = document.getElementById('webcam-section');
         const uploadSection = document.getElementById('upload-section');
         const summaryContainer = document.getElementById('summary-container');
-        const thresholdInput = document.getElementById('threshold-input'); // Mengambil elemen input threshold
+        const thresholdInput = document.getElementById('threshold-input');
+        const modelSelector = document.getElementById('model-selector');
+        const resetButton = document.getElementById('reset-button');
 
         const ctxWebcam = canvasWebcam.getContext('2d');
         const ctxImage = canvasImage.getContext('2d');
@@ -119,6 +140,7 @@
         let model = undefined;
         let currentFacingMode = 'user';
         let videoStream;
+        let comparisonResults = []; // Menyimpan hasil untuk perbandingan
 
         const TARGET_CLASSES = {
             'person': 'Orang',
@@ -166,74 +188,77 @@
             });
         }
 
-        // Fungsi untuk memperbarui tabel ringkasan
-        function updateSummaryTable(predictions) {
-            if (!predictions) {
-                summaryContainer.innerHTML = '';
+        // Fungsi untuk memperbarui tabel perbandingan
+        function updateComparisonTable() {
+            if (comparisonResults.length === 0) {
+                summaryContainer.innerHTML = '<p class="text-center text-gray-500">Jalankan deteksi untuk melihat perbandingan.</p>';
                 return;
             }
 
+            let tableHTML = '<table class="w-full text-left whitespace-nowrap"><thead><tr class="border-b"><th class="py-2 px-2 font-bold">Objek</th>';
+            
+            // Buat header kolom untuk setiap hasil
+            comparisonResults.forEach((result, index) => {
+                const modelName = result.modelName.includes('lite') ? 'Lite' : 'Full';
+                tableHTML += `<th class="py-2 px-2 font-bold text-center">${modelName}<br><span class="font-normal text-xs">(Th: ${result.threshold})</span></th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            // Buat baris untuk setiap kelas objek
+            for (const classKey in TARGET_CLASSES) {
+                const className = TARGET_CLASSES[classKey];
+                tableHTML += `<tr class="border-b border-gray-200"><td class="py-2 px-2 font-medium">${className}</td>`;
+                comparisonResults.forEach(result => {
+                    const count = result.counts[classKey] || 0;
+                    tableHTML += `<td class="py-2 px-2 text-center">${count}</td>`;
+                });
+                tableHTML += '</tr>';
+            }
+
+            tableHTML += '</tbody></table>';
+            summaryContainer.innerHTML = tableHTML;
+        }
+
+        // Fungsi untuk memproses hasil prediksi dan menambahkannya ke tabel
+        function processAndStoreResults(predictions, modelName, threshold) {
             const counts = {};
             for (const key in TARGET_CLASSES) {
                 counts[key] = 0;
             }
-
             predictions.forEach(p => {
                 if (TARGET_CLASSES[p.class]) {
                     counts[p.class]++;
                 }
             });
 
-            let tableHTML = `
-                <div class="bg-gray-50 p-3 rounded-lg">
-                    <h3 class="font-bold text-lg mb-2 text-left">Ringkasan Deteksi</h3>
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="border-b">
-                                <th class="py-1">Objek</th>
-                                <th class="py-1 text-right">Jumlah</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+            comparisonResults.push({
+                modelName: modelName,
+                threshold: threshold,
+                counts: counts
+            });
 
-            let objectDetected = false;
-            for (const key in counts) {
-                if (counts[key] > 0) {
-                    objectDetected = true;
-                    tableHTML += `
-                        <tr class="border-b border-gray-200">
-                            <td class="py-1">${TARGET_CLASSES[key]}</td>
-                            <td class="py-1 text-right">${counts[key]}</td>
-                        </tr>
-                    `;
-                }
-            }
-
-            if (!objectDetected) {
-                tableHTML += `<tr><td colspan="2" class="py-2 text-center text-gray-500">Tidak ada objek terdeteksi.</td></tr>`;
-            }
-
-            tableHTML += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            summaryContainer.innerHTML = tableHTML;
+            updateComparisonTable();
         }
 
-        // Fungsi utama untuk memuat model COCO-SSD
+        // Fungsi utama untuk memuat model COCO-SSD yang dipilih
         async function loadModel() {
+            if (model) {
+                model.dispose();
+            }
+            const selectedBase = modelSelector.value;
+            statusText.textContent = `Memuat model COCO-SSD (${selectedBase})...`;
+            startButton.disabled = true;
+            predictButton.disabled = true;
+
             try {
-                const modelConfig = { base: 'lite_mobilenet_v2' };
+                const modelConfig = { base: selectedBase };
                 model = await cocoSsd.load(modelConfig);
-                statusText.textContent = `Model COCO-SSD siap digunakan.`;
+                statusText.textContent = `Model COCO-SSD (${selectedBase}) siap.`;
                 startButton.disabled = false;
                 predictButton.disabled = false;
             } catch (error) {
                 console.error("Gagal memuat model: ", error);
-                statusText.textContent = `Error: Gagal memuat model COCO-SSD.`;
+                statusText.textContent = `Error: Gagal memuat model.`;
             }
         }
         
@@ -256,14 +281,26 @@
             }
         }
 
-        async function predictWebcamLoop() {
+        let lastUpdateTime = 0;
+        async function predictWebcamLoop(currentTime) {
             if (!videoStream || !model) return;
-            canvasWebcam.width = video.videoWidth;
-            canvasWebcam.height = video.videoHeight;
-            const threshold = parseFloat(thresholdInput.value) || 0.4; // Ambil nilai threshold
-            const predictions = await model.detect(video, undefined, threshold);
-            drawPredictions(predictions, ctxWebcam, canvasWebcam);
-            updateSummaryTable(predictions);
+            
+            // Batasi pembaruan tabel menjadi sekali per detik untuk performa
+            if (currentTime - lastUpdateTime > 1000) {
+                canvasWebcam.width = video.videoWidth;
+                canvasWebcam.height = video.videoHeight;
+                const threshold = parseFloat(thresholdInput.value) || 0.4;
+                const predictions = await model.detect(video, undefined, threshold);
+                drawPredictions(predictions, ctxWebcam, canvasWebcam);
+                
+                // Hapus hasil terakhir dan tambahkan yang baru untuk mode webcam
+                if (comparisonResults.length > 0 && comparisonResults[comparisonResults.length-1].modelName.includes('Webcam')) {
+                    comparisonResults.pop();
+                }
+                processAndStoreResults(predictions, `Webcam (${modelSelector.value})`, threshold);
+                
+                lastUpdateTime = currentTime;
+            }
             requestAnimationFrame(predictWebcamLoop);
         }
         
@@ -277,7 +314,6 @@
                     imagePreview.classList.remove('hidden');
                     imagePreview.onload = () => {
                         ctxImage.clearRect(0, 0, canvasImage.width, canvasImage.height);
-                        summaryContainer.innerHTML = '';
                     }
                 };
                 reader.readAsDataURL(file);
@@ -295,13 +331,14 @@
             }
             canvasImage.width = imagePreview.width;
             canvasImage.height = imagePreview.height;
-            const threshold = parseFloat(thresholdInput.value) || 0.4; // Ambil nilai threshold
+            const threshold = parseFloat(thresholdInput.value) || 0.4;
             const predictions = await model.detect(imagePreview, undefined, threshold);
             drawPredictions(predictions, ctxImage, canvasImage);
-            updateSummaryTable(predictions);
+            processAndStoreResults(predictions, modelSelector.value, threshold);
         }
 
         // --- Event Listeners ---
+        modelSelector.addEventListener('change', loadModel);
         startButton.addEventListener('click', () => {
             startWebcam();
             startButton.textContent = "Deteksi Webcam Aktif...";
@@ -313,6 +350,10 @@
             startWebcam();
         });
         predictButton.addEventListener('click', predictUploadedImage);
+        resetButton.addEventListener('click', () => {
+            comparisonResults = [];
+            updateComparisonTable();
+        });
         tabWebcam.addEventListener('click', () => {
             webcamSection.classList.remove('hidden');
             uploadSection.classList.add('hidden');
@@ -333,6 +374,7 @@
 
         // Memuat model saat halaman dibuka
         loadModel();
+        updateComparisonTable(); // Tampilkan tabel kosong saat pertama kali dimuat
     </script>
 </body>
 </html>
